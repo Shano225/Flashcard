@@ -1,0 +1,104 @@
+var createError = require('http-errors');
+var express = require('express');
+var path = require('path');
+var cookieParser = require('cookie-parser');
+var logger = require('morgan');
+
+var indexRouter = require('./routes/index');
+var usersRouter = require('./routes/users');
+const { DB } = require('./connect.js');
+const PORT = process.env.PORT || 4500;
+var app = express();
+
+
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'jade');
+
+app.use(logger('dev'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.use('/', indexRouter);
+app.use('/users', usersRouter);
+
+
+
+// Get all flashcards 
+app.get('/api', (req, res) => {
+  const sql = 'SELECT * FROM flashcard';
+  DB.all(sql, [], (err, rows) => {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ flashcards: rows });
+  });
+});
+
+// Add a new flashcard
+app.post('/api', (req, res) => {
+  const { Front, Back, Reaction } = req.body;
+
+  if (!Front || !Back || !Reaction) {
+    return res.status(400).json({ error: 'Front, Back, and Reaction are required' });
+  }
+
+  const sql = 'INSERT INTO flashcard (Front, Back, Reaction) VALUES (?, ?, ?)';
+  DB.run(sql, [Front, Back, Reaction], function (err) {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ error: err.message });
+    }
+    res.status(201).json({
+      message: `Flashcard created with ID ${this.lastID}`,
+      CardID: this.lastID
+    });
+  });
+});
+
+// Delete a flashcard by CardID
+app.delete('/api', (req, res) => {
+  const id = req.query.id;
+
+  if (!id) {
+    return res.status(400).json({ error: 'Missing id in query' });
+  }
+
+  const sql = 'DELETE FROM flashcard WHERE CardID = ?';
+  DB.run(sql, [id], function (err) {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ error: err.message });
+    }
+
+    if (this.changes === 0) {
+      return res.status(404).json({ message: `Flashcard with ID ${id} not found` });
+    }
+
+    res.status(200).json({ message: `Flashcard ${id} deleted` });
+  });
+});
+
+
+
+// catch 404 and forward to error handler
+app.use(function(req, res, next) {
+  next(createError(404));
+});
+
+// error handler
+app.use(function(err, req, res, next) {
+  res.locals.message = err.message;
+  res.locals.error = req.app.get('env') === 'development' ? err : {};
+  res.status(err.status || 500);
+  res.render('error');
+});
+
+
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
+
+module.exports = app;
