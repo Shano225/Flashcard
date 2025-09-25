@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+// bin/www
+// Entry point script that starts the HTTP server for the Express app.
+// Created by the Express generator; this file normalizes the port,
+// creates the server and handles common startup errors.
+
 /**
  * Module dependencies.
  */
